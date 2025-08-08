@@ -9,6 +9,7 @@ from utils.extract_text import extract_text
 from utils.parser import extract_structured_data
 import PyPDF2 as pdf
 import google.generativeai as genai
+from werkzeug.utils import secure_filename  # ✅ Added
 
 load_dotenv()
 
@@ -72,11 +73,17 @@ def matcher():
         if not job_description.strip() or not resume_files:
             return render_template('matchresume.html', message="Please provide job description and resumes.")
 
+        # ✅ Ensure uploads folder exists before saving
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
         existing_hashes = load_hashes()
         resumes, filenames, feedbacks, parsed_data = [], [], [], []
 
         for resume_file in resume_files:
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], resume_file.filename)
+            # ✅ Use secure filename
+            filename = secure_filename(resume_file.filename)
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+
             resume_file.save(filepath)
             r_hash = file_hash(filepath)
 
@@ -85,8 +92,8 @@ def matcher():
 
             text = extract_text(filepath)
             resumes.append(text)
-            filenames.append(resume_file.filename)
-            existing_hashes[r_hash] = resume_file.filename
+            filenames.append(filename)
+            existing_hashes[r_hash] = filename
 
             feedback = get_ai_feedback(text, job_description)
             feedbacks.append(feedback)
@@ -121,6 +128,6 @@ def matcher():
     return render_template('matchresume.html')
 
 if __name__ == '__main__':
-    if not os.path.exists(app.config['UPLOAD_FOLDER']):
-        os.makedirs(app.config['UPLOAD_FOLDER'])
+    # ✅ Ensure uploads folder exists at startup
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     app.run(debug=True)
